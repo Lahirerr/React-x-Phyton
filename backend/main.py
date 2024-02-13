@@ -1,5 +1,7 @@
 from flask import Flask, Response, render_template
 import cv2
+import numpy
+
 
 app = Flask(__name__)
 
@@ -47,64 +49,70 @@ video=cv2.VideoCapture(0)
 padding=20
 
 while True:
-    ret,frame=video.read()
-    frame,bboxs=faceBox(faceNet,frame)
+    ret, frame = video.read()
+    frame, bboxs = faceBox(faceNet, frame)
+
     for bbox in bboxs:
-        # face=frame[bbox[1]:bbox[3], bbox[0]:bbox[2]]
-        face = frame[max(0,bbox[1]-padding):min(bbox[3]+padding,frame.shape[0]-1),max(0,bbox[0]-padding):min(bbox[2]+padding, frame.shape[1]-1)]
-        blob=cv2.dnn.blobFromImage(face, 1.0, (227,227), MODEL_MEAN_VALUES, swapRB=False)
-        genderNet.setInput(blob)
-        genderPred=genderNet.forward()
-        gender=genderList[genderPred[0].argmax()]
+        face = frame[max(0, bbox[1]-padding):min(bbox[3]+padding,frame.shape[0]-1),
+                    max(0, bbox[0]-padding):min(bbox[2]+padding, frame.shape[1]-1)]
 
+       
+        genderNet.setInput(cv2.dnn.blobFromImage(face, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False))
+        genderPred = genderNet.forward()
+        gender = genderList[genderPred[0].argmax()]
 
-        ageNet.setInput(blob)
-        agePred=ageNet.forward()
-        age=ageList[agePred[0].argmax()]
+        ageNet.setInput(cv2.dnn.blobFromImage(face, 1.0, (227, 227), MODEL_MEAN_VALUES, swapRB=False))
+        agePred = ageNet.forward()
+        age = ageList[agePred[0].argmax()]
 
+        print("Gender:", gender)
+        print("Age:", age)
 
-        label="{},{}".format(gender,age)
-        cv2.rectangle(frame,(bbox[0], bbox[1]-30), (bbox[2], bbox[1]), (0,255,0),-1) 
-        cv2.putText(frame, label, (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255,255,255), 2,cv2.LINE_AA)
-    cv2.imshow("Age-Gender",frame)
-    k=cv2.waitKey(1000)
-    if k==ord('q'):
+        label = "{}, {}".format(gender, age)
+        cv2.rectangle(frame, (bbox[0], bbox[1]-30), (bbox[2], bbox[1]), (0, 255, 0), -1) 
+        cv2.putText(frame, label, (bbox[0], bbox[1]-10), cv2.FONT_HERSHEY_SIMPLEX, 0.8, (255, 255, 255), 2, cv2.LINE_AA)
+
+    cv2.imshow("Age-Gender", frame)
+    k = cv2.waitKey(1000)
+    if k == ord('q'):
         break
+
 video.release()
 cv2.destroyAllWindows()
 
 def generate_frames():
     while True:
-        # Capture frame
+      
         ret, frame = video.read()
         if not ret:
             break
 
-        # Perform face detection, age estimation, gender recognition
+  
         frame, bboxs = faceBox(faceNet, frame)
         labels = []
         for bbox in bboxs:
             face = frame[max(0, bbox[1]-padding):min(bbox[3]+padding,frame.shape[0]-1),
                         max(0, bbox[0]-padding):min(bbox[2]+padding, frame.shape[1]-1)]
-            # Process face for prediction (replace with your logic)
+        
             gender = "Unknown"
             age = "Unknown"
             labels.append((bbox[0], bbox[1], gender, age))
 
-        # Return frame with bounding boxes and labels
+            print(labels)
+      
         ret, buffer = cv2.imencode('.jpg', frame)
         frame = buffer.tobytes()
 
         yield (b'--frame\r\n'
                b'Content-Type: image/jpeg\r\n\r\n' + frame + b'\r\n')
 
-@app.route('/video_feed')
-def video_feed():
-    return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
+# @app.route('/video_feed')
+# def video_feed():
+#     return Response(generate_frames(), mimetype='multipart/x-mixed-replace; boundary=frame')
 
-@app.route('/')
-def index():
-    return render_template('App.tsx')
+# @app.route('/')
+# def index():
+#     return render_template('App.tsx')
 
-if __name__ == '__main__':
-    app.run(debug=True)
+# if __name__ == '__main__':
+#     app.run(debug=True)
