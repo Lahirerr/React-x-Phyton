@@ -1,0 +1,6 @@
+how to use webcam track
+
+1. cd to backend
+2. python main.python
+
+***PLEASE INSTALL PHYTON FIRST***
